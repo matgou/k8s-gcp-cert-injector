@@ -106,6 +106,12 @@ certManager:
 prometheus:
   enable: false
 
+## NetworkPolicy configuration
+## Enforces standard security hardening by restricting egress to DNS (53) and HTTPS (443) only.
+##
+networkPolicy:
+  enable: true
+
 ## Configure the ServiceAccount used by the controller
 ##
 serviceAccount:
@@ -113,3 +119,4 @@ serviceAccount:
   ## iam.gke.io/gcp-service-account: <gcp-sa-name>@<project-id>.iam.gke.gserviceaccount.com
   ##
   annotations: {}
+

@@ -14,7 +14,7 @@ container_name = null;
 active_profiles = [ ];
 hostname = "macbook-air-de-mathieu.home";
 username = "matgou";
-git_root = null;
+git_root = "/Users/matgou/workspace/k8s-gcp-cert-injector";
 
         in {
         git-hooks.url = "github:cachix/git-hooks.nix";
@@ -41,7 +41,7 @@ container_name = null;
 active_profiles = [ ];
 hostname = "macbook-air-de-mathieu.home";
 username = "matgou";
-git_root = null;
+git_root = "/Users/matgou/workspace/k8s-gcp-cert-injector";
 
             devenv =
             if builtins.pathExists (devenv_dotfile_path + "/devenv.json")

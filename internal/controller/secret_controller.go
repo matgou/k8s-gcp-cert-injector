@@ -140,11 +140,22 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	// 5. Validation of Secret Data (Must contain standard K8s TLS keys)
 	certPEM, hasCert := secret.Data[corev1.TLSCertKey]
-	keyPEM, hasKey := secret.Data[corev1.TLSPrivateKeyKey]
-	if !hasCert || !hasKey || len(certPEM) == 0 || len(keyPEM) == 0 {
+	rawKeyPEM, hasKey := secret.Data[corev1.TLSPrivateKeyKey]
+	if !hasCert || !hasKey || len(certPEM) == 0 || len(rawKeyPEM) == 0 {
 		log.Error(nil, "Secret type is kubernetes.io/tls but lacks 'tls.crt' or 'tls.key' data. Skipping sync.")
 		return ctrl.Result{}, nil // No requeue since user input must be modified to proceed
 	}
+
+	// For maximum security and compliance with Defense in Depth (buffer zeroing),
+	// we make a local copy of rawKeyPEM, and zero out the private key copy immediately
+	// when we exit Reconcile. This avoids modifying the client-go cache directly.
+	keyPEM := make([]byte, len(rawKeyPEM))
+	copy(keyPEM, rawKeyPEM)
+	defer func() {
+		for i := range keyPEM {
+			keyPEM[i] = 0
+		}
+	}()
 
 	// 6. Pre-validate Certificate Name compliance with remote store naming constraints
 	if err := validateGCPResourceName(certName); err != nil {
