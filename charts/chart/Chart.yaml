@@ -1,0 +1,14 @@
+apiVersion: v2
+name: k8s-gcp-cert-injector
+description: A Helm chart to distribute k8s-gcp-cert-injector
+type: application
+
+version: 0.1.0
+appVersion: "0.1.0"
+
+keywords:
+  - kubernetes
+  - operator
+
+annotations:
+  kubebuilder.io/generated-by: kubebuilder
