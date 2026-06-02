@@ -40,7 +40,7 @@ jobs:
 
       - name: Lint Helm Chart
         run: |
-          helm lint ./dist/chart
+          helm lint ./charts/chart
 
 # TODO: Uncomment if cert-manager is enabled
 #      - name: Install cert-manager via Helm (wait for readiness)
@@ -63,7 +63,7 @@ jobs:
 
       - name: Deploy manager via Helm
         run: |
-          make helm-deploy IMG=k8s-gcp-cert-injector:v0.1.0
+          make helm-deploy IMG=controller:latest
 
       - name: Check Helm release status
         run: |
