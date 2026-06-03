@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	certificatemanager "cloud.google.com/go/certificatemanager/apiv1"
 	"cloud.google.com/go/certificatemanager/apiv1/certificatemanagerpb"
@@ -23,6 +24,10 @@ type GCPCertificateStore struct {
 	client    *certificatemanager.Client
 	projectID string
 	location  string
+
+	clientsMu sync.RWMutex
+	clients   map[string]*certificatemanager.Client
+	baseOpts  []option.ClientOption
 }
 
 // NewGCPCertificateStore initializes a new GCPCertificateStore.
@@ -43,7 +48,42 @@ func NewGCPCertificateStore(ctx context.Context, projectID, location string, opt
 		client:    client,
 		projectID: projectID,
 		location:  location,
+		clients:   make(map[string]*certificatemanager.Client),
+		baseOpts:  opts,
 	}, nil
+}
+
+// getClient dynamically retrieves or creates a client for the current universe domain.
+func (s *GCPCertificateStore) getClient(ctx context.Context) (*certificatemanager.Client, error) {
+	universeDomain := GetUniverseDomain(ctx)
+	if universeDomain == "" {
+		return s.client, nil
+	}
+
+	s.clientsMu.RLock()
+	client, exists := s.clients[universeDomain]
+	s.clientsMu.RUnlock()
+	if exists {
+		return client, nil
+	}
+
+	s.clientsMu.Lock()
+	defer s.clientsMu.Unlock()
+
+	// Double-check under write lock
+	if client, exists = s.clients[universeDomain]; exists {
+		return client, nil
+	}
+
+	// Create new client with WithUniverseDomain option
+	opts := append([]option.ClientOption{option.WithUniverseDomain(universeDomain)}, s.baseOpts...)
+	newClient, err := certificatemanager.NewClient(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCP client for universe %s: %w", universeDomain, err)
+	}
+
+	s.clients[universeDomain] = newClient
+	return newClient, nil
 }
 
 // Sync uploads a self-managed TLS certificate to GCP Certificate Manager,
@@ -53,8 +93,13 @@ func (s *GCPCertificateStore) Sync(ctx context.Context, name string, certPEM, ke
 	// Full resource path for GCP Certificate Manager
 	certPath := fmt.Sprintf("projects/%s/locations/%s/certificates/%s", projectID, s.location, name)
 
+	client, err := s.getClient(ctx)
+	if err != nil {
+		return false, err
+	}
+
 	// Get the existing certificate, if any
-	existingCert, err := s.client.GetCertificate(ctx, &certificatemanagerpb.GetCertificateRequest{
+	existingCert, err := client.GetCertificate(ctx, &certificatemanagerpb.GetCertificateRequest{
 		Name: certPath,
 	})
 
@@ -77,7 +122,7 @@ func (s *GCPCertificateStore) Sync(ctx context.Context, name string, certPEM, ke
 				},
 			}
 
-			op, err := s.client.CreateCertificate(ctx, req)
+			op, err := client.CreateCertificate(ctx, req)
 			if err != nil {
 				return false, fmt.Errorf("failed to call CreateCertificate API: %w", err)
 			}
@@ -120,7 +165,7 @@ func (s *GCPCertificateStore) Sync(ctx context.Context, name string, certPEM, ke
 		},
 	}
 
-	op, err := s.client.UpdateCertificate(ctx, req)
+	op, err := client.UpdateCertificate(ctx, req)
 	if err != nil {
 		return false, fmt.Errorf("failed to call UpdateCertificate API: %w", err)
 	}
@@ -138,7 +183,12 @@ func (s *GCPCertificateStore) Delete(ctx context.Context, name string) error {
 	projectID := GetProjectID(ctx, s.projectID)
 	certPath := fmt.Sprintf("projects/%s/locations/%s/certificates/%s", projectID, s.location, name)
 
-	op, err := s.client.DeleteCertificate(ctx, &certificatemanagerpb.DeleteCertificateRequest{
+	client, err := s.getClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	op, err := client.DeleteCertificate(ctx, &certificatemanagerpb.DeleteCertificateRequest{
 		Name: certPath,
 	})
 

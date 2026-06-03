@@ -140,9 +140,8 @@ spec:
       # Optional: Route this certificate to a remote/different GCP Project
       cert-injector.io/gcp-project: "remote-gcp-project-id"
       
-      # Optional: Partition this certificate inside a specific universe domain / environment
-      # This suffixes the certificate name in GCP with "-emea-prod"
-      cert-injector.io/universe-domain: "emea-prod"
+      # Optional: Route the GCP SDK client to a specific Sovereign Cloud or Private Universe Domain (defaults to googleapis.com)
+      cert-injector.io/universe-domain: "my-universe.com"
 ```
 
 ### 2. Standard Secret Example (Manual Creation)
@@ -163,8 +162,8 @@ metadata:
     # 3. Optional: replicate to a completely separate GCP project
     cert-injector.io/gcp-project: "remote-gcp-project-id"
     
-    # 4. Optional: scope by universe domain (appends "-emea-prod" to the cert name)
-    cert-injector.io/universe-domain: "emea-prod"
+    # 4. Optional: Route via a specific Sovereign/Private Universe Domain (defaults to googleapis.com)
+    cert-injector.io/universe-domain: "my-universe.com"
 type: kubernetes.io/tls
 data:
   tls.crt: <base64-encoded-certificate-chain>
@@ -178,7 +177,7 @@ data:
 | `cert-injector.io/sync` | `string` ("true") | Triggers replication to GCP Certificate Manager. |
 | `cert-injector.io/cert-name` | `string` | Custom name override for the GCP Certificate. Must be DNS-1123 compliant and $\le$ 63 chars. |
 | `cert-injector.io/gcp-project` | `string` | Optional. Replicates this certificate to a completely different / remote GCP Project ID. |
-| `cert-injector.io/universe-domain` | `string` | Optional. Scopes the certificate by a remote universe domain/suffix (aligns with GCP Universe Domain conventions). Suffixes the resulting GCP certificate name with `-{universe-domain}` (e.g. `-emea-prod`). |
+| `cert-injector.io/universe-domain` | `string` | Optional. Configures the GCP API base endpoint domain used by the Google Cloud SDK client to communicate (defaults to `googleapis.com`). Necessary for Sovereign or Private Clouds. Does not modify or suffix the certificate name. |
 
 ### GCP Naming Safety & Length Limits
 GCP Certificate Manager enforces a **strict 63-character limit** and a DNS-1123 lowercase alphanumeric format (`^[a-z0-9-]{1,63}$`) on certificate resource names.

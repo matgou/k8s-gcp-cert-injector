@@ -313,8 +313,8 @@ var _ = Describe("Secret Controller", func() {
 
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
-			// The name should be suffixed with the universe domain
-			expectedName := "k8s-cert-default-test-secret-emea-prod"
+			// The name should NOT be suffixed with the universe domain
+			expectedName := "k8s-cert-default-test-secret"
 			Eventually(func() bool {
 				_, exists := mockStore.syncCalls[expectedName]
 				return exists

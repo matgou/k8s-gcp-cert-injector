@@ -96,9 +96,6 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		// Strict, predictable default naming scheme (highly integrated with Terraform)
 		certName = fmt.Sprintf("k8s-cert-%s-%s", secret.Namespace, secret.Name)
 	}
-	if universeDomain != "" {
-		certName = fmt.Sprintf("%s-%s", certName, universeDomain)
-	}
 
 	// 3. Handle Deletion (Finalizer check)
 	if !secret.DeletionTimestamp.IsZero() {
