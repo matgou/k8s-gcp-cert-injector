@@ -31,7 +31,11 @@ type GCPCertificateStore struct {
 }
 
 // NewGCPCertificateStore initializes a new GCPCertificateStore.
-func NewGCPCertificateStore(ctx context.Context, projectID, location string, opts ...option.ClientOption) (*GCPCertificateStore, error) {
+func NewGCPCertificateStore(
+	ctx context.Context,
+	projectID, location string,
+	opts ...option.ClientOption,
+) (*GCPCertificateStore, error) {
 	if projectID == "" {
 		return nil, fmt.Errorf("gcp project ID cannot be empty")
 	}
@@ -88,7 +92,12 @@ func (s *GCPCertificateStore) getClient(ctx context.Context) (*certificatemanage
 
 // Sync uploads a self-managed TLS certificate to GCP Certificate Manager,
 // performing a check on the existing label hash for complete idempotency.
-func (s *GCPCertificateStore) Sync(ctx context.Context, name string, certPEM, keyPEM []byte, targetHash string) (bool, error) {
+func (s *GCPCertificateStore) Sync(
+	ctx context.Context,
+	name string,
+	certPEM, keyPEM []byte,
+	targetHash string,
+) (bool, error) {
 	projectID := GetProjectID(ctx, s.projectID)
 	// Full resource path for GCP Certificate Manager
 	certPath := fmt.Sprintf("projects/%s/locations/%s/certificates/%s", projectID, s.location, name)

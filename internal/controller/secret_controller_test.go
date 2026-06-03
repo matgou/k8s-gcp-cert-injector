@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -35,6 +36,7 @@ var _ = Describe("Secret Controller", func() {
 		SecretNamespace = "default"
 		Timeout         = time.Second * 10
 		Interval        = time.Millisecond * 250
+		DefaultCertName = "k8s-cert-default-test-secret"
 	)
 
 	var (
@@ -127,16 +129,11 @@ var _ = Describe("Secret Controller", func() {
 				if err != nil {
 					return false
 				}
-				for _, f := range fetched.Finalizers {
-					if f == "cert-injector.io/finalizer" {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(fetched.Finalizers, "cert-injector.io/finalizer")
 			}, Timeout, Interval).Should(BeTrue())
 
 			// It should sync to the Mock store with the default name
-			expectedName := "k8s-cert-default-test-secret"
+			expectedName := DefaultCertName
 			Eventually(func() bool {
 				_, exists := mockStore.syncCalls[expectedName]
 				return exists
@@ -239,7 +236,7 @@ var _ = Describe("Secret Controller", func() {
 
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
-			expectedName := "k8s-cert-default-test-secret"
+			expectedName := DefaultCertName
 			// Wait until finalizer and sync completed
 			Eventually(func() bool {
 				_, exists := mockStore.syncCalls[expectedName]
@@ -281,7 +278,7 @@ var _ = Describe("Secret Controller", func() {
 
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
-			expectedName := "k8s-cert-default-test-secret"
+			expectedName := DefaultCertName
 			Eventually(func() bool {
 				_, exists := mockStore.syncCalls[expectedName]
 				return exists
@@ -314,7 +311,7 @@ var _ = Describe("Secret Controller", func() {
 			Expect(k8sClient.Create(ctx, secret)).To(Succeed())
 
 			// The name should NOT be suffixed with the universe domain
-			expectedName := "k8s-cert-default-test-secret"
+			expectedName := DefaultCertName
 			Eventually(func() bool {
 				_, exists := mockStore.syncCalls[expectedName]
 				return exists

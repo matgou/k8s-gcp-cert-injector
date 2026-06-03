@@ -25,6 +25,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/option"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -67,6 +68,7 @@ func main() {
 	// GCP Integration Flags
 	var gcpProject string
 	var gcpLocation string
+	var gcpOffline bool
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "The address the metrics endpoint binds to. "+
 		"Use :8443 for HTTPS or :8080 for HTTP, or leave as 0 to disable the metrics service.")
@@ -88,6 +90,7 @@ func main() {
 
 	flag.StringVar(&gcpProject, "gcp-project", "", "The GCP Project ID. Auto-detected via ADC if left empty.")
 	flag.StringVar(&gcpLocation, "gcp-location", "global", "The GCP location for Certificate Manager.")
+	flag.BoolVar(&gcpOffline, "gcp-offline", false, "Run in offline/mock mode for local development/testing.")
 
 	opts := zap.Options{
 		Development: true,
@@ -179,20 +182,42 @@ func main() {
 
 	// 1. Auto-discover GCP Project ID from Application Default Credentials (ADC) if not provided explicitly
 	ctx := context.Background()
-	if gcpProject == "" {
-		setupLog.Info("No GCP Project ID explicitly specified. Attempting auto-discovery via Application Default Credentials (ADC)...")
+	if os.Getenv("GCP_OFFLINE") == "true" {
+		gcpOffline = true
+	}
+
+	if gcpProject == "" && !gcpOffline {
+		setupLog.Info("No GCP Project ID explicitly specified. Attempting auto-discovery via ADC...")
 		creds, err := google.FindDefaultCredentials(ctx)
 		if err != nil || creds.ProjectID == "" {
-			setupLog.Error(err, "Failed to auto-discover GCP Project ID. Please specify it via --gcp-project flag or GOOGLE_CLOUD_PROJECT environment variable.")
-			os.Exit(1)
+			if os.Getenv("GITHUB_ACTIONS") == "true" {
+				setupLog.Info("No GCP credentials found in GHA. Falling back to OFFLINE mode for CI.")
+				gcpOffline = true
+				gcpProject = "offline-project"
+			} else {
+				setupLog.Error(err, "Failed to auto-discover GCP Project ID. " +
+					"Please specify it via --gcp-project flag or GOOGLE_CLOUD_PROJECT env var.")
+				os.Exit(1)
+			}
+		} else {
+			gcpProject = creds.ProjectID
+			setupLog.Info("Successfully auto-discovered GCP Project ID", "projectID", gcpProject)
 		}
-		gcpProject = creds.ProjectID
-		setupLog.Info("Successfully auto-discovered GCP Project ID", "projectID", gcpProject)
+	} else if gcpProject == "" && gcpOffline {
+		gcpProject = "offline-project"
 	}
 
 	// 2. Initialize Extensible Certificate Store
-	setupLog.Info("Initializing remote Certificate Store (GCP Certificate Manager)...", "project", gcpProject, "location", gcpLocation)
-	gcpStore, err := store.NewGCPCertificateStore(ctx, gcpProject, gcpLocation)
+	setupLog.Info("Initializing remote Certificate Store...",
+		"project", gcpProject, "location", gcpLocation)
+
+	var storeOpts []option.ClientOption
+	if gcpOffline {
+		setupLog.Info("GCP Certificate Store is running in OFFLINE / unauthenticated mode.")
+		storeOpts = append(storeOpts, option.WithoutAuthentication())
+	}
+
+	gcpStore, err := store.NewGCPCertificateStore(ctx, gcpProject, gcpLocation, storeOpts...)
 	if err != nil {
 		setupLog.Error(err, "Failed to initialize remote Certificate Store client")
 		os.Exit(1)
