@@ -195,7 +195,7 @@ func main() {
 				gcpOffline = true
 				gcpProject = "offline-project"
 			} else {
-				setupLog.Error(err, "Failed to auto-discover GCP Project ID. " +
+				setupLog.Error(err, "Failed to auto-discover GCP Project ID. "+
 					"Please specify it via --gcp-project flag or GOOGLE_CLOUD_PROJECT env var.")
 				os.Exit(1)
 			}
